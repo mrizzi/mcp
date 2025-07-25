@@ -1,3 +1,4 @@
+use mcp::auth;
 use rmcp::transport::streamable_http_server::{
     StreamableHttpService, session::local::LocalSessionManager,
 };
@@ -28,6 +29,11 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let router = axum::Router::new().nest_service("/mcp", service);
+    let router = match auth::is_auth_disabled() {
+        true => router,
+        false => auth::protect_router(router).await?,
+    };
+
     let tcp_listener = tokio::net::TcpListener::bind(BIND_ADDRESS).await?;
     let _ = axum::serve(tcp_listener, router)
         .with_graceful_shutdown(async { tokio::signal::ctrl_c().await.unwrap() })
